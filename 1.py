@@ -126,16 +126,15 @@ class DataSet:
 
 name = input('Введите название файла: ')
 spec = input('Введите название профессии: ')
+output = input('Введите, что необходимо вывести (Зарплаты/Вакансии)')
 data_set = DataSet(name, spec)
 data_set.find_year_item()
-print(f'Динамика уровня зарплат по годам: {data_set.mean_salary}')
-print(f'Динамика количества вакансий по годам: {data_set.vacancies_count}')
-print(f'Динамика уровня зарплат по годам для выбранной профессии: {data_set.spec_salary}')
-print(f'Динамика количества вакансий по годам для выбранной профессии: {data_set.spec_count}')
-print(f'Уровень зарплат по городам (в порядке убывания): {dict(Counter(data_set.cities_salary_final).most_common(10))}')
-print(f'Доля вакансий по городам (в порядке убывания): {dict(Counter(data_set.vacancy_fraction).most_common(10))}')
+if output == 'Зарплаты':
+    print(f'Динамика уровня зарплат по годам: {data_set.mean_salary}')
+    print(f'Динамика уровня зарплат по годам для выбранной профессии: {data_set.spec_salary}')
+    print(f'Уровень зарплат по городам (в порядке убывания): {dict(Counter(data_set.cities_salary_final).most_common(10))}')
+elif output == 'Вакансии':
+    print(f'Динамика количества вакансий по годам: {data_set.vacancies_count}')
+    print(f'Динамика количества вакансий по годам для выбранной профессии: {data_set.spec_count}')
+    print(f'Доля вакансий по городам (в порядке убывания): {dict(Counter(data_set.vacancy_fraction).most_common(10))}')
 
-'''
-vacancies_by_year.csv
-Аналитик
-'''
