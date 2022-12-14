@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pdfkit
 from jinja2 import Environment, FileSystemLoader
-
+import math
 
 convert_currency = {
     "AZN": 35.68,
