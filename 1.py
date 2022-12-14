@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pdfkit
 from jinja2 import Environment, FileSystemLoader
+import pandas as pd
 
 
 convert_currency = {
