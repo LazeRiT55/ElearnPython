@@ -1,0 +1,15 @@
+td {
+    padding: 10px;
+}
+
+tr:first-child td {
+    font-weight: bold;
+}
+
+.flex {
+    display: flex;
+}
+
+.flex table {
+    display:inline-block;
+}

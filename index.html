@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <link rel="stylesheet" href="C:\Users\admin\PycharmProjects\Konovalov\style.css">
+</head>
+<body>
+    <h1 align="center">Аналитика по зарплатам и городам для профессии {{ spec }}</h1>
+    <img src="C:\Users\admin\PycharmProjects\Konovalov\graph.png" style="object-fit: fill">
+    <h2 align="center">Статистика по годам</h2>
+    <table border="1" align="center" style="border-collapse: collapse">
+        {% for row in first.iter_rows() %}
+        <tr>
+            {% for cell in row %}
+                <td align="center">{{ cell.value }}</td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    </table>
+    <h2 align="center">Статистика по городам</h2>
+    <div class="flex" align="center">
+        <table border="1" style="border-collapse: collapse">
+            {% for row in second.iter_rows(min_row=1, min_col=1, max_row=second.max_row, max_col=2) %}
+            <tr>
+                {% for cell in row %}
+                    <td align="center">{{ cell.value }}</td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </table>
+        <table border="1" style="border-collapse: collapse">
+            {% for row in second.iter_rows(min_row=1, min_col=4, max_row=second.max_row, max_col=5) %}
+            <tr>
+                {% for i in range(row|length) %}
+                    {% if row[i].value is string %}
+                        <td align="center">{{ row[i].value }}</td>
+                    {% else %}
+                        <td align="center">{{ ((100*row[i].value)|round(2)) ~ '%' }}</td>
+                    {% endif %}
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+</body>
+</html>
