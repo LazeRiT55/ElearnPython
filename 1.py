@@ -1,6 +1,15 @@
 import csv
 import re
 from collections import Counter
+import openpyxl
+from openpyxl.styles import Font, Border, Side
+from openpyxl.styles.numbers import FORMAT_PERCENTAGE_00
+from openpyxl import Workbook
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import numpy as np
+import pdfkit
+from jinja2 import Environment, FileSystemLoader
 
 
 convert_currency = {
@@ -124,17 +133,121 @@ class DataSet:
                 self.vacancy_fraction[area] = round(fraction, 4)
 
 
+class Report:
+    def __init__(self, profession):
+        self.wb = Workbook()
+        self.ws = self.wb.active
+        self.ws.title = "Статистика по годам"
+        self.ws1 = self.wb.create_sheet("Статистика по городам")
+        self.border = Border(
+            left=Side(border_style="thin", color="000000"),
+            right=Side(border_style="thin", color="000000"),
+            top=Side(border_style="thin", color="000000"),
+            bottom=Side(border_style="thin", color="000000")
+        )
+        self.fig, self.ax = plt.subplots(nrows=2, ncols=2, figsize=(10, 10))
+        self.profession = profession
+        self.env = Environment(loader=FileSystemLoader('.'))
+        self.html = self.env.get_template("index.html")
+        self.a = 1
+
+    def set_column_width(self, name_column, sheet, count_rows, start):
+        for i in range(len(name_column)):
+            max_len = 0
+            for j in range(1, count_rows + 1):
+                if max_len < len(str(sheet[chr(i + ord(start)) + str(j)].value)):
+                    max_len = len(str(sheet[chr(i + ord(start)) + str(j)].value)) + 2
+            sheet.column_dimensions[chr(i + ord(start))].width = max_len
+
+    def fill_header(self, boxes, name_column, is_bold):
+        i = 0
+        for column in boxes:
+            for box in column:
+                box.value = name_column[i]
+                box.font = Font(bold=is_bold)
+                box.border = self.border
+                i += 1
+
+    def generate_excel(self, list_name, data, header, start, end, type=""):
+        self.ws = self.wb[list_name]
+        self.fill_header(list(self.ws[start + '1': end + '1']), header, True)
+        for i in range(len(data)):
+            keys = list(data[i].keys())
+            for j in range(len(keys)):
+                self.ws[start + str(j + 2)].value = keys[j]
+                self.ws[start + str(j + 2)].border = self.border
+                self.ws[chr(i + ord(start) + 1) + str(j + 2)].value = data[i][keys[j]]
+                self.ws[chr(i + ord(start) + 1) + str(j + 2)].border = self.border
+                if type:
+                    self.ws[chr(i + ord(start) + 1) + str(j + 2)].number_format = FORMAT_PERCENTAGE_00
+        self.set_column_width(header, self.ws, len(list(data[0].keys())) + 1, start)
+
+    def save_excel(self):
+        self.wb.save("report.xlsx")
+
+    def generate_image(self, salary_by_year, salary_by_year_for_profession, count_by_year, count_by_year_for_profession, sum_salary_by_year_for_city, fraction_by_city):
+        width = 0.35
+        x = np.array(list(salary_by_year.keys()))
+        self.ax[0, 0].bar(x - width / 2, list(salary_by_year.values()), width, label='Средняя з/п')
+        self.ax[0, 0].bar(x + width / 2, list(salary_by_year_for_profession.values()), width, label=f'з/п {spec}')
+        self.ax[0, 0].set_title('Уровень зарплат по годам')
+        self.ax[0, 0].set_xticks(x)
+        self.ax[0, 0].set_xticklabels(list(salary_by_year.keys()), rotation=90, fontsize=8)
+        self.ax[0, 0].legend(prop={'size': 8})
+        self.ax[0, 0].grid(axis='y')
+        self.ax[0, 1].bar(x - width / 2, list(count_by_year.values()), width, label='Количество вакансий')
+        self.ax[0, 1].bar(x + width / 2, list(count_by_year_for_profession.values()), width, label=f'Количество вакансий {spec}')
+        self.ax[0, 1].set_title('Количество вакансий по годам')
+        self.ax[0, 1].set_xticks(x)
+        self.ax[0, 1].set_xticklabels(list(salary_by_year.keys()), rotation=90, fontsize=8)
+        self.ax[0, 1].legend(prop={'size': 8})
+        self.ax[0, 1].grid(axis='y')
+        label = []
+        for item in list(sum_salary_by_year_for_city.keys()):
+            if "-" in item:
+                label.append(item.replace("-", "-\n"))
+            elif " " in item:
+                label.append(item.replace(" ", "\n"))
+            else:
+                label.append(item)
+        y = np.array(label)
+        self.ax[1, 0].barh(y, list(sum_salary_by_year_for_city.values()))
+        self.ax[1, 0].set_yticks(y, labels=label, fontsize=6)
+        self.ax[1, 0].invert_yaxis()
+        self.ax[1, 0].set_title('Уровень зарплат по городам')
+        self.ax[1, 0].grid(axis='x')
+        summ = sum(list(fraction_by_city.values())[10:])
+        fraction_by_city = dict(list(fraction_by_city.items())[0:10])
+        fraction_by_city["Другие"] = summ
+        self.ax[1, 1].pie(list(fraction_by_city.values()), labels=list(fraction_by_city.keys()), textprops={'fontsize': 6})
+        self.ax[1, 1].axis("equal")
+        self.ax[1, 1].set_title('Доля вакансий по городам')
+        plt.tight_layout()
+        plt.savefig('graph.png', dpi=100)
+
+    def create_pdf(self):
+        options = {
+            "enable-local-file-access": None
+        }
+        xfile = openpyxl.load_workbook("report.xlsx")
+        data = xfile['Статистика по годам']
+        data2 = xfile['Статистика по городам']
+        config = pdfkit.configuration(wkhtmltopdf=r'C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe')
+        pdfkit.from_string(self.html.render({'profession': self.profession, 'first': data, 'second': data2}), 'report.pdf', configuration=config, options=options)
+
+
 name = input('Введите название файла: ')
 spec = input('Введите название профессии: ')
-output = input('Введите, что необходимо вывести (Зарплаты/Вакансии)')
 data_set = DataSet(name, spec)
 data_set.find_year_item()
-if output == 'Зарплаты':
-    print(f'Динамика уровня зарплат по годам: {data_set.mean_salary}')
-    print(f'Динамика уровня зарплат по годам для выбранной профессии: {data_set.spec_salary}')
-    print(f'Уровень зарплат по городам (в порядке убывания): {dict(Counter(data_set.cities_salary_final).most_common(10))}')
-elif output == 'Вакансии':
-    print(f'Динамика количества вакансий по годам: {data_set.vacancies_count}')
-    print(f'Динамика количества вакансий по годам для выбранной профессии: {data_set.spec_count}')
-    print(f'Доля вакансий по городам (в порядке убывания): {dict(Counter(data_set.vacancy_fraction).most_common(10))}')
-
+xls = Report(spec)
+header = ["Год", "Средняя зарплата", f"Средняя зарплата - {spec}", "Количество вакансий", f"Количество вакансий - {spec}"]
+xls.generate_excel("Статистика по годам", [data_set.mean_salary, data_set.vacancies_count, data_set.spec_salary, data_set.spec_count], header, 'A', 'E')
+header = ["Город", "Уровень зарплат"]
+xls.generate_excel("Статистика по городам", [dict(Counter(data_set.cities_salary_final).most_common(10))], header, 'A', 'B')
+header = ["Город", "Доля вакансий"]
+xls.generate_excel("Статистика по городам", [dict(Counter(data_set.vacancy_fraction).most_common(10))], header, 'D', 'E', "percent")
+xls.ws.column_dimensions["C"].width = 2
+xls.save_excel()
+xls.generate_image(data_set.mean_salary, data_set.spec_salary, data_set.vacancies_count, data_set.spec_count, dict(Counter(data_set.cities_salary_final).most_common(10)), dict(Counter(data_set.vacancy_fraction).most_common(10)))
+xls.create_pdf()
